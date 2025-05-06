@@ -1,73 +1,45 @@
 import streamlit as st
 import pandas as pd
-import itertools
+import numpy as np
 
-st.title("🏇 進化型AI競馬予想アプリ（単勝＋馬連＋ワイド）")
-st.write("CSVファイルをアップロードして、AIが買い目と配分を提案します！")
+st.set_page_config(page_title="AI競馬予想", layout="wide")
+st.title("🏇 AI競馬予想 ＆ 買い目提案アプリ")
 
-# 💴 軍資金
-budget = st.number_input("💴 軍資金を入力（円）", value=10000, step=1000)
+# CSVアップロード
+tab1, tab2 = st.tabs(["📄 出走表アップロード", "🧠 AI予想"])
 
-# 📂 ファイルアップロード
-uploaded_file = st.file_uploader("📥 出走表CSVファイルをアップロード（UTF-8形式）", type="csv")
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+with tab1:
+    uploaded_file = st.file_uploader("出走表CSVファイルをアップロード", type=["csv"])
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.success("✅ ファイル読み込み成功！")
+        st.dataframe(df)
+        st.session_state["df"] = df
 
-    # スコア計算
-    weights = {
-        "タイム指数": 0.2, "上がり3F": -0.1, "調教": 0.1, "騎手": 0.1,
-        "馬場": 0.1, "コース": 0.1, "枠順": 0.05, "展開": 0.1,
-        "血統": 0.05, "ローテ": 0.05, "成長": 0.05
-    }
+with tab2:
+    if "df" not in st.session_state:
+        st.warning("📄 まず出走表CSVをアップロードしてください！")
+    else:
+        df = st.session_state["df"]
 
-    def calc_score(row):
-        return round(sum(row[col] * w for col, w in weights.items()), 2)
+        # 特徴量から適当にスコアを作成（仮のAIロジック）
+        np.random.seed(42)
+        df["勝率予想"] = np.round(np.random.dirichlet(np.ones(len(df))), 3)
+        df["3着内率"] = df["勝率予想"] + np.round(np.random.uniform(0.1, 0.25, len(df)), 3)
+        df["AIコメント"] = df["勝率予想"].apply(lambda x: "期待大！🔥" if x > 0.18 else ("展開次第！🤔" if x > 0.10 else "厳しいかも…"))
 
-    df["AIスコア"] = df.apply(calc_score, axis=1)
-    df = df.sort_values(by="AIスコア", ascending=False).reset_index(drop=True)
+        st.subheader("🧠 AI予想結果")
+        st.dataframe(df[["馬名", "騎手", "枠順", "オッズ", "勝率予想", "3着内率", "AIコメント"]])
 
-    # 🧠 コメントと危険人気馬
-    def comment(row):
-        c = []
-        if row["調教"] >= 85: c.append("仕上がり良好")
-        if row["騎手"] >= 88: c.append("騎手頼れる")
-        if row["展開"] >= 85: c.append("展開バッチリ")
-        if row["成長"] >= 85: c.append("成長中で期待")
-        if not c: c.append("静かにチャンスあり")
-        return "・".join(c)
+        # 買い目算出（単勝のみ簡易計算）
+        st.subheader("💸 AI買い目提案（単勝）")
+        budget = st.number_input("軍資金（円）", value=1000, step=100)
+        df_sorted = df.sort_values("勝率予想", ascending=False).head(3).copy()
 
-    df["AIコメント"] = df.apply(comment, axis=1)
-    df["危険注意"] = df.apply(lambda row: "⚠️" if row["人気"] <= 3 and row["AIスコア"] < 60 else "", axis=1)
+        total_score = df_sorted["勝率予想"].sum()
+        df_sorted["推奨金額"] = df_sorted["勝率予想"] / total_score * budget
+        df_sorted["推奨金額"] = (df_sorted["推奨金額"] // 100 * 100).astype(int)
 
-    st.subheader("📊 予想結果（スコア順）")
-    st.dataframe(df[["日付", "レース名", "馬名", "人気", "オッズ", "AIスコア", "危険注意", "AIコメント"]])
+        st.dataframe(df_sorted[["馬名", "勝率予想", "オッズ", "推奨金額"]])
 
-    # 💴 買い目（単勝・馬連・ワイド）
-    st.subheader("💴 各レースの買い目配分（単勝・馬連・ワイド）")
-    
-    for race_name, group in df.groupby("レース名"):
-        st.markdown(f"### 📌 {race_name} のおすすめ買い目")
-        top3 = group.sort_values(by="AIスコア", ascending=False).head(3)
-
-        # --- 単勝 ---
-        st.markdown("#### 🎯 単勝（スコア比で配分）")
-        total_score = top3["AIスコア"].sum()
-        sing_budget = budget * 0.5
-        for _, row in top3.iterrows():
-            ratio = row["AIスコア"] / total_score
-            amount = int(round(sing_budget * ratio / 100) * 100)
-            exp = int(round(amount * row["オッズ"]))
-            st.write(f"・{row['馬名']}：{amount}円（期待回収：{exp}円）")
-
-        # --- 馬連 ---
-        st.markdown("#### 🟦 馬連（3点・均等割り）")
-        umaren_pairs = list(itertools.combinations(top3["馬名"], 2))
-        umaren_budget = int(round((budget * 0.3) / 3 / 100) * 100)
-        for pair in umaren_pairs:
-            st.write(f"・{pair[0]} × {pair[1]}：{umaren_budget}円")
-
-        # --- ワイド ---
-        st.markdown("#### 🟨 ワイド（3点・均等割り）")
-        wide_budget = int(round((budget * 0.2) / 3 / 100) * 100)
-        for pair in umaren_pairs:
-            st.write(f"・{pair[0]} × {pair[1]}：{wide_budget}円")
+        st.info("※ 仮のAIロジックです。今後学習型に進化させていきます！")

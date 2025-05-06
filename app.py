@@ -43,3 +43,32 @@ if uploaded_file is not None:
 
     st.subheader("📊 予想結果（スコア順）")
     st.dataframe(df[["日付", "レース名", "馬名", "人気", "オッズ", "AIスコア", "危険注意", "AIコメント"]])
+
+st.subheader("📋 おすすめレース一覧（AI評価）")
+
+# レース単位でスコア差（ばらつき）を見ておすすめ度をつける
+recommendations = []
+for race_name, group in df.groupby("レース名"):
+    max_score = group["AIスコア"].max()
+    min_score = group["AIスコア"].min()
+    spread = max_score - min_score
+
+    if spread >= 15:
+        rank = "🌟🌟🌟"
+        reason = "スコア差大きく本命明確"
+    elif spread >= 8:
+        rank = "🌟🌟"
+        reason = "スコア差中・バランス型"
+    else:
+        rank = "🌟"
+        reason = "混戦模様・穴狙いも視野"
+
+    recommendations.append({
+        "レース名": race_name,
+        "おすすめ度": rank,
+        "理由": reason
+    })
+
+rec_df = pd.DataFrame(recommendations)
+st.dataframe(rec_df)
+

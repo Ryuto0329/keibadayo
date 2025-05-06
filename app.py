@@ -72,3 +72,33 @@ for race_name, group in df.groupby("レース名"):
 rec_df = pd.DataFrame(recommendations)
 st.dataframe(rec_df)
 
+st.subheader("💴 各レースの買い目配分（単勝AI配分）")
+
+# 買い目配分結果を保存するリスト
+bets = []
+
+# レースごとに処理
+for race_name, group in df.groupby("レース名"):
+    # AIスコア上位3頭を取得
+    top_horses = group.sort_values(by="AIスコア", ascending=False).head(3)
+    total_score = top_horses["AIスコア"].sum()
+
+    for _, row in top_horses.iterrows():
+        score = row["AIスコア"]
+        ratio = score / total_score
+        amount = int(budget * ratio)
+        expected_return = round(amount * row["オッズ"])
+        bets.append({
+            "レース名": race_name,
+            "馬名": row["馬名"],
+            "AIスコア": score,
+            "人気": row["人気"],
+            "オッズ": row["オッズ"],
+            "配分金額": f"¥{amount:,}",
+            "期待回収": f"¥{expected_return:,}"
+        })
+
+# 表示
+bets_df = pd.DataFrame(bets)
+st.dataframe(bets_df)
+

@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 # ✅ ここにnetkeibaの出馬表URLを貼り替える！
-url = "https://race.netkeiba.com/race/shutuba.html?race_id=202405030811"
+url = "https://race.netkeiba.com/race/result.html?race_id=202508020411&rf=race_list"
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"

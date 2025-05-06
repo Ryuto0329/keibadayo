@@ -26,7 +26,11 @@ with tab2:
         np.random.seed(42)
         df["勝率予想"] = np.round(np.random.dirichlet(np.ones(len(df))), 3)
         df["3着内率"] = df["勝率予想"] + np.round(np.random.uniform(0.1, 0.25, len(df)), 3)
-        df["AIコメント"] = df["勝率予想"].apply(lambda x: "期待大！🔥" if x > 0.18 else ("展開次第！🤔" if x > 0.10 else "厳しいかも…"))
+
+        # 🔥 修正ポイント：applyの中は x だけでOK！
+        df["AIコメント"] = df["勝率予想"].apply(
+            lambda x: "期待大！🔥" if x > 0.18 else ("展開次第！🤔" if x > 0.10 else "厳しいかも…")
+        )
 
         st.subheader("🧠 AI予想結果")
         st.dataframe(df[["馬名", "騎手", "枠順", "オッズ", "勝率予想", "3着内率", "AIコメント"]])
@@ -41,5 +45,4 @@ with tab2:
         df_sorted["推奨金額"] = (df_sorted["推奨金額"] // 100 * 100).astype(int)
 
         st.dataframe(df_sorted[["馬名", "勝率予想", "オッズ", "推奨金額"]])
-
         st.info("※ 仮のAIロジックです。今後学習型に進化させていきます！")

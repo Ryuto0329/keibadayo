@@ -72,22 +72,24 @@ for race_name, group in df.groupby("レース名"):
 rec_df = pd.DataFrame(recommendations)
 st.dataframe(rec_df)
 
-st.subheader("💴 各レースの買い目配分（単勝AI配分）")
+st.subheader("💴 各レースの買い目配分（単勝AI配分・100円単位）")
 
-# 買い目配分結果を保存するリスト
 bets = []
 
-# レースごとに処理
 for race_name, group in df.groupby("レース名"):
-    # AIスコア上位3頭を取得
     top_horses = group.sort_values(by="AIスコア", ascending=False).head(3)
     total_score = top_horses["AIスコア"].sum()
 
+    st.markdown(f"### 📌 {race_name} のおすすめ買い目（単勝）")
     for _, row in top_horses.iterrows():
         score = row["AIスコア"]
         ratio = score / total_score
-        amount = int(budget * ratio)
+        raw_amount = budget * ratio
+        amount = int(round(raw_amount / 100) * 100)  # 100円単位に調整
         expected_return = round(amount * row["オッズ"])
+
+        st.write(f"・{row['馬名']}：{amount}円（期待回収：{expected_return}円）")
+
         bets.append({
             "レース名": race_name,
             "馬名": row["馬名"],
@@ -98,7 +100,6 @@ for race_name, group in df.groupby("レース名"):
             "期待回収": f"¥{expected_return:,}"
         })
 
-# 表示
+# 全体表も下に表示
 bets_df = pd.DataFrame(bets)
 st.dataframe(bets_df)
-
